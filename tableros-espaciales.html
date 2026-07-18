@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tableros de Control para Datos Espaciales</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#0a0f1a;
+  --panel:#0f1826;
+  --panel-2:#141f2e;
+  --line:#223247;
+  --text:#e7edf3;
+  --text-dim:#8ea0b5;
+  --teal:#23d5ab;
+  --amber:#f5a623;
+  --violet:#7c83fd;
+  --danger:#ff5d5d;
+  --mono:'JetBrains Mono', monospace;
+  --display:'Space Grotesk', sans-serif;
+  --body:'Inter', sans-serif;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--body);
+  line-height:1.6;
+}
+::selection{background:var(--teal); color:#04140f;}
+
+h1,h2,h3,h4,.display-font{font-family:var(--display); letter-spacing:-0.01em;}
+.mono{font-family:var(--mono);}
+.text-dim{color:var(--text-dim);}
+.text-teal{color:var(--teal);}
+.text-amber{color:var(--amber);}
+.text-violet{color:var(--violet);}
+
+a{color:var(--teal); text-decoration:none;}
+
+/* ---------- NAV ---------- */
+.navbar-custom{
+  background:rgba(10,15,26,0.85);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.navbar-custom .navbar-brand{
+  font-family:var(--display);
+  font-weight:600;
+  font-size:1.05rem;
+  color:var(--text);
+}
+.navbar-custom .navbar-brand .dot{color:var(--teal);}
+.navbar-custom .nav-link{
+  color:var(--text-dim) !important;
+  font-size:0.88rem;
+  font-family:var(--mono);
+  margin:0 0.4rem;
+}
+.navbar-custom .nav-link:hover{color:var(--text) !important;}
+
+/* ---------- HERO ---------- */
+.hero{
+  position:relative;
+  height:92vh;
+  min-height:640px;
+  overflow:hidden;
+  border-bottom:1px solid var(--line);
+}
+#heroMap{
+  position:absolute;
+  inset:0;
+  filter:saturate(0.6) brightness(0.55);
+}
+.hero-scrim{
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg, rgba(10,15,26,0.55) 0%, rgba(10,15,26,0.35) 40%, rgba(10,15,26,0.92) 100%);
+  pointer-events:none;
+}
+.hero-content{
+  position:relative;
+  z-index:5;
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  pointer-events:none;
+}
+.hero-eyebrow{
+  font-family:var(--mono);
+  font-size:0.78rem;
+  color:var(--teal);
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  border:1px solid rgba(35,213,171,0.35);
+  display:inline-block;
+  padding:0.3rem 0.7rem;
+  border-radius:2px;
+  background:rgba(35,213,171,0.06);
+}
+.hero-title{
+  font-size:clamp(2.4rem, 6vw, 5rem);
+  font-weight:600;
+  line-height:1.03;
+  margin:1.2rem 0 1rem;
+  max-width:900px;
+}
+.hero-sub{
+  max-width:560px;
+  color:var(--text-dim);
+  font-size:1.05rem;
+}
+.coord-readout{
+  position:absolute;
+  bottom:2rem;
+  left:0;
+  right:0;
+  z-index:6;
+  display:flex;
+  justify-content:space-between;
+  padding:0 1.5rem;
+  font-family:var(--mono);
+  font-size:0.78rem;
+  color:var(--text-dim);
+  pointer-events:none;
+}
+.coord-box{
+  background:rgba(15,24,38,0.75);
+  border:1px solid var(--line);
+  padding:0.5rem 0.9rem;
+  border-radius:4px;
+  backdrop-filter:blur(4px);
+}
+.coord-box .val{color:var(--teal);}
+.radar{
+  position:absolute;
+  top:2rem;
+  right:2rem;
+  width:60px;height:60px;
+  border-radius:50%;
+  border:1px solid rgba(35,213,171,0.35);
+  z-index:6;
+}
+.radar::before{
+  content:'';
+  position:absolute; inset:0;
+  border-radius:50%;
+  background:conic-gradient(from 0deg, rgba(35,213,171,0.55), transparent 35%);
+  animation:spin 3.2s linear infinite;
+}
+.radar::after{
+  content:'';
+  position:absolute; inset:8px;
+  border-radius:50%;
+  border:1px solid rgba(35,213,171,0.25);
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+@media (prefers-reduced-motion: reduce){
+  .radar::before{animation:none;}
+}
+.scroll-cue{
+  position:absolute;
+  bottom:2rem; left:50%;
+  transform:translateX(-50%);
+  z-index:6;
+  color:var(--text-dim);
+  font-family:var(--mono);
+  font-size:0.7rem;
+  letter-spacing:0.15em;
+  text-transform:uppercase;
+}
+
+/* ---------- SECTIONS ---------- */
+section{padding:5.5rem 0;}
+.section-tag{
+  font-family:var(--mono);
+  font-size:0.78rem;
+  color:var(--teal);
+  text-transform:uppercase;
+  letter-spacing:0.12em;
+  margin-bottom:0.6rem;
+  display:block;
+}
+.section-title{
+  font-size:clamp(1.7rem, 3vw, 2.4rem);
+  font-weight:600;
+  margin-bottom:1rem;
+}
+.section-lead{
+  color:var(--text-dim);
+  max-width:680px;
+}
+
+/* ---------- LAYERS EXPLORER (signature) ---------- */
+.layers-shell{
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  background:var(--panel);
+}
+.layers-sidebar{
+  background:var(--panel-2);
+  border-right:1px solid var(--line);
+}
+.layer-item{
+  display:flex;
+  align-items:flex-start;
+  gap:0.8rem;
+  padding:1rem 1.1rem;
+  border-bottom:1px solid var(--line);
+  cursor:pointer;
+  transition:background 0.15s ease;
+  position:relative;
+}
+.layer-item:last-child{border-bottom:none;}
+.layer-item:hover{background:rgba(35,213,171,0.05);}
+.layer-item.active{background:rgba(35,213,171,0.08);}
+.layer-item.active::before{
+  content:'';
+  position:absolute; left:0; top:0; bottom:0;
+  width:3px;
+  background:var(--teal);
+}
+.layer-check{
+  width:16px;height:16px;
+  border:1px solid var(--line);
+  border-radius:3px;
+  flex-shrink:0;
+  margin-top:0.25rem;
+  display:flex;align-items:center;justify-content:center;
+}
+.layer-item.active .layer-check{
+  background:var(--teal);
+  border-color:var(--teal);
+}
+.layer-item.active .layer-check::after{
+  content:'✓'; font-size:0.65rem; color:#04140f; font-weight:700;
+}
+.layer-name{
+  font-family:var(--display);
+  font-weight:600;
+  font-size:0.95rem;
+}
+.layer-item.active .layer-name{color:var(--teal);}
+.layer-sector{
+  font-family:var(--mono);
+  font-size:0.7rem;
+  color:var(--text-dim);
+  margin-top:0.15rem;
+}
+#demoMap{
+  height:460px;
+  width:100%;
+}
+.layer-detail{
+  padding:1.4rem 1.6rem;
+  border-top:1px solid var(--line);
+  background:var(--panel-2);
+}
+.layer-detail .kpi-row{
+  display:flex;
+  gap:1.6rem;
+  margin-top:0.9rem;
+  flex-wrap:wrap;
+}
+.kpi{
+  font-family:var(--mono);
+  font-size:0.75rem;
+  color:var(--text-dim);
+}
+.kpi b{
+  display:block;
+  color:var(--text);
+  font-size:0.85rem;
+  font-family:var(--body);
+  font-weight:600;
+}
+.badge-sector{
+  background:rgba(124,131,253,0.12);
+  color:var(--violet);
+  border:1px solid rgba(124,131,253,0.3);
+  font-family:var(--mono);
+  font-weight:400;
+  font-size:0.72rem;
+  padding:0.35rem 0.6rem;
+}
+
+/* ---------- CHART CARDS ---------- */
+.chart-card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:1.4rem 1.5rem 1rem;
+  height:100%;
+  position:relative;
+}
+.chart-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:0.8rem;
+  margin-bottom:1rem;
+  flex-wrap:wrap;
+}
+.chart-title{
+  font-family:var(--display);
+  font-weight:600;
+  font-size:1rem;
+}
+.chart-sub{
+  font-family:var(--mono);
+  font-size:0.74rem;
+  color:var(--text-dim);
+  margin-top:0.2rem;
+}
+.chart-card .plotly-box{height:260px; width:100%;}
+.gauge-value{
+  position:absolute;
+  bottom:2.2rem;
+  left:50%;
+  transform:translateX(-50%);
+  font-family:var(--display);
+  font-weight:700;
+  font-size:1.6rem;
+  color:var(--teal);
+}
+
+/* ---------- CASE CARDS ---------- */
+.case-card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:1.5rem;
+  height:100%;
+  transition:border-color 0.2s ease, transform 0.2s ease;
+}
+.case-card:hover{
+  border-color:rgba(35,213,171,0.4);
+  transform:translateY(-3px);
+}
+.case-icon{
+  width:42px;height:42px;
+  border-radius:6px;
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;
+  margin-bottom:1rem;
+}
+.case-tag{
+  font-family:var(--mono);
+  font-size:0.68rem;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:var(--amber);
+}
+.case-title{
+  font-family:var(--display);
+  font-weight:600;
+  font-size:1.05rem;
+  margin:0.4rem 0 0.6rem;
+}
+.case-text{color:var(--text-dim); font-size:0.9rem;}
+.case-uses{
+  margin-top:0.9rem;
+  padding-top:0.9rem;
+  border-top:1px dashed var(--line);
+  font-family:var(--mono);
+  font-size:0.72rem;
+  color:var(--teal);
+}
+
+/* ---------- TABLE ---------- */
+.table-wrap{
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+}
+table.compare{
+  width:100%;
+  border-collapse:collapse;
+  background:var(--panel);
+  font-size:0.88rem;
+}
+table.compare th{
+  background:var(--panel-2);
+  font-family:var(--mono);
+  font-weight:500;
+  text-transform:uppercase;
+  font-size:0.7rem;
+  letter-spacing:0.06em;
+  color:var(--text-dim);
+  padding:0.9rem 1rem;
+  text-align:left;
+  border-bottom:1px solid var(--line);
+}
+table.compare td{
+  padding:0.9rem 1rem;
+  border-bottom:1px solid var(--line);
+  color:var(--text);
+  vertical-align:top;
+}
+table.compare tr:last-child td{border-bottom:none;}
+table.compare td.type-cell{font-family:var(--display); font-weight:600; color:var(--teal); white-space:nowrap;}
+
+footer{
+  border-top:1px solid var(--line);
+  padding:2.5rem 0;
+  color:var(--text-dim);
+  font-family:var(--mono);
+  font-size:0.8rem;
+}
+
+.leaflet-popup-content-wrapper{
+  background:var(--panel-2);
+  color:var(--text);
+  border:1px solid var(--line);
+  font-family:var(--body);
+}
+.leaflet-popup-tip{background:var(--panel-2);}
+.leaflet-popup-content{font-size:0.82rem; margin:0.7rem 0.9rem;}
+.leaflet-popup-content b{font-family:var(--display);}
+
+@media (max-width: 991px){
+  .layers-sidebar{border-right:none; border-bottom:1px solid var(--line);}
+  #demoMap{height:340px;}
+}
+</style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-custom fixed-top py-3">
+  <div class="container">
+    <a class="navbar-brand" href="#top">Carlos<span class="dot">•</span>Tavera</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav1" style="border-color:var(--line);">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="nav1">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="#tipos">01 · Tipos</a></li>
+        <li class="nav-item"><a class="nav-link" href="#graficos">02 · Gráficos</a></li>
+        <li class="nav-item"><a class="nav-link" href="#casos">03 · Casos reales</a></li>
+        <li class="nav-item"><a class="nav-link" href="#comparativa">04 · Comparativa</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero" id="top">
+  <div id="heroMap"></div>
+  <div class="hero-scrim"></div>
+  <div class="radar"></div>
+  <div class="container hero-content">
+    <span class="hero-eyebrow">Sistemas de información geográfica · Toma de decisiones</span>
+    <h1 class="hero-title">Tableros de control<br>para datos espaciales</h1>
+    <p class="hero-sub">Cinco formas de convertir coordenadas, sensores y polígonos en decisiones: qué tipo de tablero usar, quién lo consulta y en qué proyecto real ya está funcionando.</p>
+  </div>
+  <div class="coord-readout">
+    <div class="coord-box">LAT <span class="val" id="lat-val">7.1193</span> &nbsp;/&nbsp; LNG <span class="val" id="lng-val">-73.1227</span></div>
+    <div class="coord-box">ZOOM <span class="val" id="zoom-val">6</span> &nbsp;·&nbsp; CAPA <span class="val">basemap-dark</span></div>
+  </div>
+  <div class="scroll-cue">↓ desplázate</div>
+</header>
+
+<!-- INTRO -->
+<section class="container" style="padding-bottom:2rem;">
+  <div class="row">
+    <div class="col-lg-8">
+      <span class="section-tag">Contexto</span>
+      <h2 class="section-title">Un tablero espacial no es solo un mapa con datos encima</h2>
+      <p class="section-lead">Es una herramienta de decisión: cambia según quién lo usa, qué tan seguido se actualiza y qué pregunta responde. Un operador de red de sensores necesita ver alertas en segundos; un director de planeación necesita ver tendencias de meses. Ambos usan mapas — pero necesitan tableros distintos.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TIPOS DE TABLERO / LAYERS EXPLORER -->
+<section id="tipos" class="container">
+  <span class="section-tag">01 — Explorador de capas</span>
+  <h2 class="section-title">Cinco tipos de tablero, un mismo mapa</h2>
+  <p class="section-lead mb-4">Selecciona un tipo de tablero como si activaras una capa en un SIG. El mapa de la derecha cambia su visualización para mostrar cómo se ve ese tipo de tablero en funcionamiento.</p>
+
+  <div class="layers-shell row g-0">
+    <div class="col-lg-4 layers-sidebar" id="layerList"></div>
+    <div class="col-lg-8">
+      <div id="demoMap"></div>
+      <div class="layer-detail" id="layerDetail"></div>
+    </div>
+  </div>
+</section>
+
+<!-- GRAFICOS -->
+<section id="graficos" class="container">
+  <span class="section-tag">02 — Más allá del mapa</span>
+  <h2 class="section-title">Los gráficos que acompañan a cada tablero</h2>
+  <p class="section-lead mb-5">Ningún tablero espacial vive solo del mapa: el mapa dice <em>dónde</em>, y estos gráficos dicen <em>cuánto, cuándo y en qué proporción</em>. Aquí están los tipos más usados, con el mismo dato geoespacial visto desde otro ángulo.</p>
+
+  <div class="row g-4">
+
+    <div class="col-lg-6">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Barras · comparación entre puntos</div>
+            <div class="chart-sub">AQI promedio por estación de monitoreo</div>
+          </div>
+          <span class="badge badge-sector">usado en: monitoreo</span>
+        </div>
+        <div id="chartBar" class="plotly-box"></div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Circular (dona) · composición</div>
+            <div class="chart-sub">Alertas activas por tipo de riesgo</div>
+          </div>
+          <span class="badge badge-sector">usado en: predictivo</span>
+        </div>
+        <div id="chartDonut" class="plotly-box"></div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Líneas · tendencia en el tiempo</div>
+            <div class="chart-sub">Casos reportados por semana epidemiológica</div>
+          </div>
+          <span class="badge badge-sector">usado en: analítico</span>
+        </div>
+        <div id="chartLine" class="plotly-box"></div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Circular (pie) · participación</div>
+            <div class="chart-sub">Entregas del día por estado de ruta</div>
+          </div>
+          <span class="badge badge-sector">usado en: logístico</span>
+        </div>
+        <div id="chartPie" class="plotly-box"></div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Radar · comparación multivariable</div>
+            <div class="chart-sub">Índice territorial por dimensión, tres regiones</div>
+          </div>
+          <span class="badge badge-sector">usado en: estratégico</span>
+        </div>
+        <div id="chartRadar" class="plotly-box"></div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Medidor (gauge) · KPI único</div>
+            <div class="chart-sub">Cobertura catastral nacional actual</div>
+          </div>
+          <span class="badge badge-sector">usado en: estratégico</span>
+        </div>
+        <div id="chartGauge" class="plotly-box"></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- CASOS REALES -->
+<section id="casos" class="container">
+  <span class="section-tag">03 — Aplicaciones</span>
+  <h2 class="section-title">Proyectos reales donde estos tableros ya operan</h2>
+  <p class="section-lead mb-5">Los mismos cinco tipos, vistos desde sectores distintos: ambiente, agro, salud, logística y territorio.</p>
+
+  <div class="row g-4" id="caseGrid"></div>
+</section>
+
+<!-- COMPARATIVA -->
+<section id="comparativa" class="container">
+  <span class="section-tag">04 — Referencia rápida</span>
+  <h2 class="section-title">¿Cuál tablero usar?</h2>
+  <p class="section-lead mb-4">Tabla de referencia para elegir el tipo de tablero según el usuario final y la frecuencia de actualización que necesita el proyecto.</p>
+
+  <div class="table-wrap">
+    <table class="compare">
+      <thead>
+        <tr>
+          <th>Tipo de tablero</th>
+          <th>Usuario principal</th>
+          <th>Frecuencia</th>
+          <th>Visualización clave</th>
+          <th>Ejemplo de proyecto</th>
+        </tr>
+      </thead>
+      <tbody id="compareBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="container">
+  <div class="row">
+    <div class="col-md-6">Carlos Tavera — desarrollo de referencia sobre tableros de control espaciales</div>
+    <div class="col-md-6 text-md-end">construido con Bootstrap 5 · Leaflet 1.9 · leaflet.heat · leaflet.markercluster</div>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
+
+<script>
+/* =========================================================
+   HERO MAP — mapa ambiental de fondo con lectura de coordenadas
+   ========================================================= */
+const heroMap = L.map('heroMap', {
+  center:[6.5, -74.5],
+  zoom:6,
+  zoomControl:false,
+  attributionControl:false,
+  dragging:false,
+  scrollWheelZoom:false,
+  doubleClickZoom:false,
+  boxZoom:false,
+  keyboard:false,
+  touchZoom:false
+});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:10}).addTo(heroMap);
+
+const latVal = document.getElementById('lat-val');
+const lngVal = document.getElementById('lng-val');
+const zoomVal = document.getElementById('zoom-val');
+
+document.querySelector('.hero').addEventListener('mousemove', (e)=>{
+  const rect = e.currentTarget.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const pt = heroMap.containerPointToLatLng([x,y]);
+  latVal.textContent = pt.lat.toFixed(4);
+  lngVal.textContent = pt.lng.toFixed(4);
+});
+zoomVal.textContent = heroMap.getZoom();
+
+/* =========================================================
+   DATOS DE LOS 5 TIPOS DE TABLERO
+   ========================================================= */
+const layerTypes = [
+  {
+    id:'monitoreo',
+    num:'01',
+    name:'Monitoreo en tiempo real',
+    sector:'Ambiente · Salud pública',
+    badge:'Operacional continuo',
+    desc:'Vigila sensores IoT, estaciones meteorológicas o cámaras y muestra su estado al instante. Prioriza velocidad de actualización sobre profundidad de análisis: la pregunta es "¿qué está pasando ahora?", no "¿por qué pasó?".',
+    project:'Proyecto real: red de estaciones de calidad del aire y alertas hidrometeorológicas del Área Metropolitana de Bucaramanga, con datos que alimentan reportes similares a los del IDEAM.',
+    kpis:[['Actualización','cada 1–15 min'],['Usuario','operador de sala de control'],['Icono','punto pulsante por estado']],
+    center:[7.12,-73.05], zoom:10,
+    render:renderMonitoreo
+  },
+  {
+    id:'analitico',
+    num:'02',
+    name:'Analítico / exploratorio',
+    sector:'Salud · Investigación',
+    badge:'Tendencias históricas',
+    desc:'Compara un indicador entre regiones y a lo largo del tiempo, usando coropletas (polígonos coloreados por intensidad). Sirve para detectar patrones y correlaciones, no para reaccionar en el momento.',
+    project:'Proyecto real: seguimiento de incidencia de dengue por departamento, en la línea de los boletines epidemiológicos del Instituto Nacional de Salud.',
+    kpis:[['Actualización','semanal / mensual'],['Usuario','analista, epidemiólogo'],['Icono','coropleta por región']],
+    center:[5.5,-74.5], zoom:6,
+    render:renderAnalitico
+  },
+  {
+    id:'logistico',
+    num:'03',
+    name:'Operacional / logístico',
+    sector:'Transporte · Última milla',
+    badge:'Seguimiento en ruta',
+    desc:'Sigue vehículos o flotas en movimiento sobre una ruta planeada, mostrando posición, tiempo estimado de llegada y desvíos. Es el tablero del despachador, no del planeador.',
+    project:'Proyecto real: plataformas de reparto urbano y transporte de carga en corredores como Bucaramanga–Bogotá, con seguimiento GPS de cada unidad.',
+    kpis:[['Actualización','cada 5–30 seg'],['Usuario','despachador, coordinador de flota'],['Icono','marcador en movimiento']],
+    center:[6.3,-73.9], zoom:7,
+    render:renderLogistico
+  },
+  {
+    id:'predictivo',
+    num:'04',
+    name:'Predictivo / alerta temprana',
+    sector:'Gestión del riesgo',
+    badge:'Modelos de riesgo',
+    desc:'Traduce un modelo (inundación, deslizamiento, incendio) en zonas de riesgo con mapas de calor. No muestra lo que ya pasó: muestra dónde es más probable que pase algo.',
+    project:'Proyecto real: sistemas de alerta temprana por inundación en la región de La Mojana, articulados con el Sistema Nacional de Gestión del Riesgo de Desastres.',
+    kpis:[['Actualización','diaria, según pronóstico'],['Usuario','gestor de riesgo, autoridad local'],['Icono','mapa de calor']],
+    center:[8.4,-74.8], zoom:8,
+    render:renderPredictivo
+  },
+  {
+    id:'estrategico',
+    num:'05',
+    name:'Estratégico / ejecutivo',
+    sector:'Planeación territorial',
+    badge:'Resumen para decisión',
+    desc:'Agrupa cientos de puntos en clústeres regionales y resume cada zona en un indicador clave. Está pensado para una reunión directiva, no para un centro de operaciones.',
+    project:'Proyecto real: tableros territoriales de planeación usados por entidades como el Departamento Nacional de Planeación y ejercicios de catastro multipropósito.',
+    kpis:[['Actualización','trimestral'],['Usuario','director, tomador de decisión'],['Icono','clúster + ficha KPI']],
+    center:[5.0,-74.0], zoom:5,
+    render:renderEstrategico
+  }
+];
+
+let currentLayerGroup = null;
+let animTimers = [];
+
+function clearDemoMap(){
+  animTimers.forEach(t=>clearInterval(t));
+  animTimers = [];
+  if(currentLayerGroup){ demoMap.removeLayer(currentLayerGroup); currentLayerGroup = null; }
+}
+
+/* ---- Render 01: Monitoreo (sensores pulsantes) ---- */
+function renderMonitoreo(){
+  const stations = [
+    {c:[7.119,-73.122], name:'Bucaramanga · Centro', status:'ok'},
+    {c:[7.063,-73.086], name:'Floridablanca · Cañaveral', status:'alerta'},
+    {c:[7.083,-73.169], name:'Girón · Casco urbano', status:'ok'},
+    {c:[6.999,-73.052], name:'Piedecuesta · Estación sur', status:'critico'},
+    {c:[7.145,-73.108], name:'Bucaramanga · Norte', status:'ok'},
+  ];
+  const colors = {ok:'#23d5ab', alerta:'#f5a623', critico:'#ff5d5d'};
+  const group = L.layerGroup();
+  const markers = stations.map(s=>{
+    const m = L.circleMarker(s.c, {radius:8, color:colors[s.status], fillColor:colors[s.status], fillOpacity:0.6, weight:2});
+    m.bindPopup(`<b>${s.name}</b><br>Estado: ${s.status.toUpperCase()}<br>Sensor de calidad del aire`);
+    m.addTo(group);
+    return m;
+  });
+  group.addTo(demoMap);
+  currentLayerGroup = group;
+  let grow = true, r = 8;
+  const t = setInterval(()=>{
+    r += grow ? 0.6 : -0.6;
+    if(r>13) grow=false; if(r<8) grow=true;
+    markers.forEach(m=>m.setRadius(r));
+  },70);
+  animTimers.push(t);
+}
+
+/* ---- Render 02: Analítico (coropleta aproximada) ---- */
+function renderAnalitico(){
+  const regions = [
+    {name:'Santander', center:[6.8,-73.1], val:78},
+    {name:'Antioquia', center:[6.55,-75.5], val:54},
+    {name:'Cundinamarca', center:[4.9,-74.2], val:62},
+    {name:'Valle del Cauca', center:[3.9,-76.4], val:41},
+    {name:'Atlántico', center:[10.7,-74.9], val:69},
+    {name:'Nariño', center:[1.3,-77.3], val:88},
+  ];
+  function scale(v){
+    if(v>75) return '#ff5d5d';
+    if(v>55) return '#f5a623';
+    return '#23d5ab';
+  }
+  function box(center, size){
+    const [lat,lng]=center;
+    return [[lat-size,lng-size],[lat-size,lng+size],[lat+size,lng+size],[lat+size,lng-size]];
+  }
+  const group = L.layerGroup();
+  regions.forEach(r=>{
+    const poly = L.polygon(box(r.center, 0.55), {
+      color:scale(r.val), weight:1, fillColor:scale(r.val), fillOpacity:0.35
+    });
+    poly.bindPopup(`<b>${r.name}</b><br>Índice: ${r.val}/100<br><span style="color:#8ea0b5">mapa ilustrativo, no oficial</span>`);
+    poly.addTo(group);
+  });
+  group.addTo(demoMap);
+  currentLayerGroup = group;
+}
+
+/* ---- Render 03: Logístico (marcador en ruta) ---- */
+function renderLogistico(){
+  const route = [
+    [7.119,-73.122],[6.98,-73.4],[6.6,-73.8],[6.2,-74.0],[5.6,-74.05],[4.71,-74.07]
+  ];
+  const group = L.layerGroup();
+  const line = L.polyline(route, {color:'#7c83fd', weight:3, dashArray:'4 6'});
+  line.addTo(group);
+  L.circleMarker(route[0], {radius:6, color:'#23d5ab', fillColor:'#23d5ab', fillOpacity:1}).bindTooltip('Origen · Bucaramanga', {permanent:false}).addTo(group);
+  L.circleMarker(route[route.length-1], {radius:6, color:'#f5a623', fillColor:'#f5a623', fillOpacity:1}).bindTooltip('Destino · Bogotá', {permanent:false}).addTo(group);
+
+  const truck = L.circleMarker(route[0], {radius:7, color:'#fff', fillColor:'#7c83fd', fillOpacity:1, weight:2});
+  truck.bindPopup('<b>Unidad 14</b><br>ETA: calculando…');
+  truck.addTo(group);
+  group.addTo(demoMap);
+  currentLayerGroup = group;
+
+  let seg = 0, prog = 0;
+  const t = setInterval(()=>{
+    prog += 0.02;
+    if(prog>=1){ prog=0; seg = (seg+1) % (route.length-1); }
+    const a = route[seg], b = route[seg+1];
+    const lat = a[0] + (b[0]-a[0])*prog;
+    const lng = a[1] + (b[1]-a[1])*prog;
+    truck.setLatLng([lat,lng]);
+    const remaining = Math.round((1-((seg+prog)/(route.length-1)))*180);
+    truck.setPopupContent(`<b>Unidad 14</b><br>ETA: ${remaining} min`);
+  }, 90);
+  animTimers.push(t);
+}
+
+/* ---- Render 04: Predictivo (mapa de calor) ---- */
+function renderPredictivo(){
+  const base = [8.4,-74.8];
+  const points = [];
+  for(let i=0;i<80;i++){
+    points.push([
+      base[0] + (Math.random()-0.5)*1.4,
+      base[1] + (Math.random()-0.5)*1.4,
+      Math.random()
+    ]);
+  }
+  const heat = L.heatLayer(points, {radius:28, blur:22, maxZoom:9,
+    gradient:{0.2:'#23d5ab', 0.5:'#f5a623', 0.8:'#ff5d5d'}});
+  const group = L.layerGroup([heat]);
+  L.marker(base, {opacity:0}).bindPopup('Zona de monitoreo: La Mojana — riesgo de inundación estacional').addTo(group);
+  group.addTo(demoMap);
+  currentLayerGroup = group;
+}
+
+/* ---- Render 05: Estratégico (clústeres + KPI) ---- */
+function renderEstrategico(){
+  const offices = [
+    {c:[4.71,-74.07], name:'Bogotá', kpi:'Cobertura catastral: 91%'},
+    {c:[6.25,-75.57], name:'Medellín', kpi:'Cobertura catastral: 87%'},
+    {c:[3.45,-76.53], name:'Cali', kpi:'Cobertura catastral: 76%'},
+    {c:[10.96,-74.79], name:'Barranquilla', kpi:'Cobertura catastral: 68%'},
+    {c:[7.12,-73.12], name:'Bucaramanga', kpi:'Cobertura catastral: 82%'},
+  ];
+  const cluster = L.markerClusterGroup({showCoverageOnHover:false});
+  offices.forEach(o=>{
+    // varios puntos por ciudad para simular densidad regional
+    for(let i=0;i<6;i++){
+      const jitter = [(Math.random()-0.5)*0.4, (Math.random()-0.5)*0.4];
+      const m = L.marker([o.c[0]+jitter[0], o.c[1]+jitter[1]]);
+      m.bindPopup(`<b>Región ${o.name}</b><br>${o.kpi}`);
+      cluster.addLayer(m);
+    }
+  });
+  const group = L.layerGroup([cluster]);
+  group.addTo(demoMap);
+  currentLayerGroup = group;
+}
+
+/* =========================================================
+   MAPA DEMO + SIDEBAR
+   ========================================================= */
+const demoMap = L.map('demoMap', {scrollWheelZoom:false}).setView([5.5,-74.5], 6);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:12}).addTo(demoMap);
+
+function buildSidebar(){
+  const list = document.getElementById('layerList');
+  list.innerHTML = '';
+  layerTypes.forEach((lt, i)=>{
+    const item = document.createElement('div');
+    item.className = 'layer-item' + (i===0 ? ' active' : '');
+    item.dataset.id = lt.id;
+    item.innerHTML = `
+      <div class="layer-check"></div>
+      <div>
+        <div class="layer-name">${lt.num} · ${lt.name}</div>
+        <div class="layer-sector">${lt.sector}</div>
+      </div>`;
+    item.addEventListener('click', ()=> selectLayer(lt.id));
+    list.appendChild(item);
+  });
+}
+
+function renderDetail(lt){
+  const detail = document.getElementById('layerDetail');
+  detail.innerHTML = `
+    <span class="badge badge-sector">${lt.badge}</span>
+    <h3 class="display-font" style="font-size:1.15rem; font-weight:600; margin:0.7rem 0 0.5rem;">${lt.name}</h3>
+    <p style="color:var(--text-dim); font-size:0.9rem; margin-bottom:0.6rem;">${lt.desc}</p>
+    <p style="font-size:0.85rem; color:var(--teal);">${lt.project}</p>
+    <div class="kpi-row">
+      ${lt.kpis.map(k=>`<div class="kpi">${k[0]}<b>${k[1]}</b></div>`).join('')}
+    </div>`;
+}
+
+function selectLayer(id){
+  const lt = layerTypes.find(l=>l.id===id);
+  document.querySelectorAll('.layer-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.id===id);
+  });
+  clearDemoMap();
+  demoMap.setView(lt.center, lt.zoom, {animate:true});
+  lt.render();
+  renderDetail(lt);
+}
+
+buildSidebar();
+selectLayer(layerTypes[0].id);
+
+/* =========================================================
+   GRÁFICOS COMPLEMENTARIOS (Plotly.js)
+   ========================================================= */
+const palette = {teal:'#23d5ab', amber:'#f5a623', violet:'#7c83fd', danger:'#ff5d5d', dim:'#2a3b52'};
+
+const baseLayout = {
+  paper_bgcolor:'transparent',
+  plot_bgcolor:'transparent',
+  font:{family:'Inter, sans-serif', color:'#8ea0b5', size:11},
+  margin:{l:40, r:20, t:10, b:36},
+  showlegend:false
+};
+const baseConfig = {displayModeBar:false, responsive:true};
+const gridLine = {gridcolor:'#1a2635', zerolinecolor:'#1a2635', color:'#8ea0b5'};
+
+/* --- Barras --- */
+Plotly.newPlot('chartBar', [{
+  x:['Centro','Cañaveral','Girón','Piedecuesta','Norte'],
+  y:[42, 58, 39, 71, 45],
+  type:'bar',
+  marker:{color:[palette.teal,palette.amber,palette.teal,palette.danger,palette.teal], line:{width:0}},
+  hovertemplate:'%{x}<br>AQI: %{y}<extra></extra>'
+}], {...baseLayout, xaxis:{...gridLine, showgrid:false}, yaxis:{...gridLine, title:'AQI promedio'}}, baseConfig);
+
+/* --- Dona --- */
+Plotly.newPlot('chartDonut', [{
+  labels:['Inundación','Deslizamiento','Incendio forestal','Vendaval'],
+  values:[38, 27, 21, 14],
+  type:'pie',
+  hole:0.55,
+  marker:{colors:[palette.danger, palette.amber, palette.violet, palette.teal], line:{color:'#0f1826', width:2}},
+  textfont:{color:'#0a0f1a', size:11},
+  hovertemplate:'%{label}: %{percent}<extra></extra>'
+}], {...baseLayout, showlegend:true, legend:{orientation:'h', y:-0.15, font:{size:10}}, margin:{l:10,r:10,t:10,b:10}}, baseConfig);
+
+/* --- Líneas --- */
+Plotly.newPlot('chartLine', [{
+  x:['S1','S2','S3','S4','S5','S6','S7','S8'],
+  y:[12,18,15,24,31,27,35,29],
+  type:'scatter',
+  mode:'lines+markers',
+  line:{color:palette.teal, width:2.5, shape:'spline'},
+  marker:{color:palette.teal, size:5},
+  fill:'tozeroy',
+  fillcolor:'rgba(35,213,171,0.12)',
+  hovertemplate:'%{x}: %{y} casos<extra></extra>'
+}], {...baseLayout, xaxis:{...gridLine, showgrid:false}, yaxis:{...gridLine, title:'casos'}}, baseConfig);
+
+/* --- Pie --- */
+Plotly.newPlot('chartPie', [{
+  labels:['Entregadas','En ruta','Retrasadas','Canceladas'],
+  values:[64, 22, 10, 4],
+  type:'pie',
+  marker:{colors:[palette.teal, palette.violet, palette.amber, palette.danger], line:{color:'#0f1826', width:2}},
+  textfont:{color:'#0a0f1a', size:11},
+  hovertemplate:'%{label}: %{percent}<extra></extra>'
+}], {...baseLayout, showlegend:true, legend:{orientation:'h', y:-0.15, font:{size:10}}, margin:{l:10,r:10,t:10,b:10}}, baseConfig);
+
+/* --- Radar --- */
+const radarCats = ['Cobertura catastral','Conectividad','Infraestructura vial','Cobertura ambiental','Densidad de sensores'];
+Plotly.newPlot('chartRadar', [
+  {type:'scatterpolar', r:[82,70,65,74,60,82], theta:[...radarCats, radarCats[0]], name:'Santander', line:{color:palette.teal}, fillcolor:'rgba(35,213,171,0.12)', fill:'toself'},
+  {type:'scatterpolar', r:[76,80,72,58,66,76], theta:[...radarCats, radarCats[0]], name:'Valle del Cauca', line:{color:palette.violet}, fillcolor:'rgba(124,131,253,0.10)', fill:'toself'},
+  {type:'scatterpolar', r:[54,42,48,81,35,54], theta:[...radarCats, radarCats[0]], name:'Nariño', line:{color:palette.amber}, fillcolor:'rgba(245,166,35,0.10)', fill:'toself'}
+], {
+  ...baseLayout,
+  showlegend:true,
+  legend:{orientation:'h', y:-0.1, font:{size:10}},
+  polar:{
+    bgcolor:'transparent',
+    radialaxis:{visible:true, range:[0,100], gridcolor:'#1a2635', color:'#8ea0b5', showticklabels:false},
+    angularaxis:{gridcolor:'#1a2635', color:'#8ea0b5', tickfont:{size:9}}
+  },
+  margin:{l:40,r:40,t:20,b:40}
+}, baseConfig);
+
+/* --- Gauge --- */
+Plotly.newPlot('chartGauge', [{
+  type:'indicator',
+  mode:'gauge+number',
+  value:82,
+  number:{suffix:'%', font:{color:palette.teal, size:30, family:'Space Grotesk, sans-serif'}},
+  gauge:{
+    axis:{range:[0,100], tickcolor:'#8ea0b5', tickfont:{size:9}},
+    bar:{color:palette.teal},
+    bgcolor:'transparent',
+    borderwidth:0,
+    steps:[
+      {range:[0,50], color:'#1a2635'},
+      {range:[50,80], color:'#22303f'},
+      {range:[80,100], color:'#233a35'}
+    ]
+  }
+}], {...baseLayout, margin:{l:20,r:20,t:20,b:0}}, baseConfig);
+
+window.addEventListener('resize', ()=>{
+  ['chartBar','chartDonut','chartLine','chartPie','chartRadar','chartGauge'].forEach(id=>{
+    Plotly.Plots.resize(document.getElementById(id));
+  });
+});
+
+/* =========================================================
+   CASOS REALES (grid de tarjetas)
+   ========================================================= */
+const cases = [
+  {icon:'🌱', tag:'Agricultura de precisión', title:'Riego guiado por índice de vegetación (NDVI)', text:'Coropletas de NDVI por lote para decidir qué zonas de un cultivo necesitan riego o fertilización esta semana.', uses:'Tipo de tablero: analítico / exploratorio'},
+  {icon:'🏙️', tag:'Ciudades inteligentes', title:'Semaforización y tráfico en tiempo real', text:'Sensores de flujo vehicular en intersecciones clave, con alertas cuando un corredor supera su capacidad.', uses:'Tipo de tablero: monitoreo en tiempo real'},
+  {icon:'🌊', tag:'Gestión del riesgo', title:'Alerta temprana por creciente súbita', text:'Modelo hidrológico que colorea microcuencas según probabilidad de desbordamiento en las próximas 24 horas.', uses:'Tipo de tablero: predictivo / alerta temprana'},
+  {icon:'🚚', tag:'Logística de última milla', title:'Torre de control de flota urbana', text:'Posición y ETA de cada repartidor o vehículo de carga, con reasignación de rutas cuando hay un incidente vial.', uses:'Tipo de tablero: operacional / logístico'},
+  {icon:'🏥', tag:'Salud pública', title:'Vigilancia epidemiológica territorial', text:'Casos de una enfermedad de interés en salud pública agrupados por municipio, comparados mes a mes.', uses:'Tipo de tablero: analítico / exploratorio'},
+  {icon:'🗺️', tag:'Catastro y ordenamiento', title:'Tablero directivo de cobertura catastral', text:'Resumen ejecutivo por departamento del avance de actualización catastral, para reportar a junta directiva.', uses:'Tipo de tablero: estratégico / ejecutivo'},
+];
+
+const caseGrid = document.getElementById('caseGrid');
+cases.forEach(c=>{
+  const col = document.createElement('div');
+  col.className = 'col-md-6 col-lg-4';
+  col.innerHTML = `
+    <div class="case-card">
+      <div class="case-icon">${c.icon}</div>
+      <div class="case-tag">${c.tag}</div>
+      <div class="case-title">${c.title}</div>
+      <div class="case-text">${c.text}</div>
+      <div class="case-uses">${c.uses}</div>
+    </div>`;
+  caseGrid.appendChild(col);
+});
+
+/* =========================================================
+   TABLA COMPARATIVA
+   ========================================================= */
+const compareBody = document.getElementById('compareBody');
+layerTypes.forEach(lt=>{
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td class="type-cell">${lt.name}</td>
+    <td>${lt.kpis[1][1]}</td>
+    <td>${lt.kpis[0][1]}</td>
+    <td>${lt.kpis[2][1]}</td>
+    <td>${lt.project.replace('Proyecto real: ','')}</td>`;
+  compareBody.appendChild(row);
+});
+</script>
+</body>
+</html>
